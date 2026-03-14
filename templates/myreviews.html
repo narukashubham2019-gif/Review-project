@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ReviewPredict — My Reviews</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./static/css/review.css">
+</head>
+<body>
+
+<div id="loader"><div class="spin"></div></div>
+
+<nav>
+  <div class="ni">
+    <a href="{{ url_for('dashboard') }}" class="brand">
+      <div class="bico">🧠</div>
+      <span class="bname">ReviewPredict</span>
+    </a>
+    <ul class="nl">
+      <li><a href="{{ url_for('dashboard') }}">🏠 Dashboard</a></li>
+      <li><a href="{{ url_for('myreviews') }}" class="act">📋 My Reviews</a></li>
+      <li><a href="{{ url_for('about') }}">ℹ️ About</a></li>
+      <li><a href="{{ url_for('logout') }}" class="lo">🚪 Logout</a></li>
+    </ul>
+    <div class="nright">
+      <div class="uname">👤 {{ username }}</div>
+      <button class="ham" id="ham" onclick="toggleMob()">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<div class="mob-menu" id="mobMenu">
+  <a href="{{ url_for('dashboard') }}">🏠 Dashboard</a>
+  <a href="{{ url_for('myreviews') }}">📋 My Reviews</a>
+  <a href="{{ url_for('about') }}">ℹ️ About</a>
+  <a href="{{ url_for('logout') }}" style="color:var(--red)">🚪 Logout</a>
+</div>
+
+<!-- Confirm Overlay -->
+<div class="overlay" id="overlay">
+  <div class="cfm-box">
+    <div class="ci">🗑️</div>
+    <h3>Delete Review?</h3>
+    <p>This cannot be undone.</p>
+    <div class="cfm-btns">
+      <button class="btn-cancel" onclick="closeOv()">Cancel</button>
+      <button class="btn-del" id="cfmBtn">Delete</button>
+    </div>
+  </div>
+</div>
+
+<main>
+  <div class="pg-head rev">
+    <div>
+      <h1>📋 My Reviews</h1>
+      <p>All your saved sentiment analyses, grouped by product.</p>
+    </div>
+    {% if grouped %}
+    <form method="POST" action="{{ url_for('clear_reviews') }}" onsubmit="return confirm('Clear ALL reviews? This cannot be undone.')">
+      <button type="submit" class="btn-clear">🗑 Clear All</button>
+    </form>
+    {% endif %}
+  </div>
+
+  <!-- Filters -->
+  <div class="filters rev">
+    <input type="text" id="searchInput" placeholder="🔍 Search by product or review text…" oninput="applyFilter()">
+    <select id="sentFilter" onchange="applyFilter()">
+      <option value="">All Sentiments</option>
+      <option value="Positive">😊 Positive</option>
+      <option value="Neutral">😐 Neutral</option>
+      <option value="Negative">😞 Negative</option>
+    </select>
+  </div>
+  <div class="chips rev">
+    <button class="chip all active" onclick="setChip('',this)">All</button>
+    <button class="chip pos" onclick="setChip('Positive',this)">😊 Positive</button>
+    <button class="chip neu" onclick="setChip('Neutral',this)">😐 Neutral</button>
+    <button class="chip neg" onclick="setChip('Negative',this)">😞 Negative</button>
+  </div>
+
+  {% if grouped %}
+    {% for product, reviews in grouped.items() %}
+    <div class="pg-group rev" id="pg_{{ loop.index }}">
+      <div class="pg-hd">
+        <h2>
+          📦 {{ product }}
+          {% if reviews[0].category %}
+          <span class="pg-cat">· {{ reviews[0].category }}</span>
+          {% endif %}
+        </h2>
+        <span class="pg-count">{{ reviews | length }} review{% if reviews | length != 1 %}s{% endif %}</span>
+      </div>
+      <div class="cards-grid">
+        {% for r in reviews %}
+        <div class="rc {{ r.sentiment }}"
+             data-sent="{{ r.sentiment }}"
+             data-text="{{ r.text | lower }}"
+             data-prod="{{ product | lower }}">
+
+          <div class="rc-top">
+            <span class="badge {{ r.sentiment }}">
+              {% if r.sentiment == 'Positive' %}😊{% elif r.sentiment == 'Neutral' %}😐{% else %}😞{% endif %}
+              {{ r.sentiment }}
+            </span>
+            <form method="POST" action="{{ url_for('delete_review', index=r._index) }}">
+              <button type="submit" class="del-btn" onclick="return cfmDel(event, this.closest('form'))">🗑</button>
+            </form>
+          </div>
+
+          <p class="rc-text" id="txt_{{ r._index }}">{{ r.text }}</p>
+          {% if r.text | length > 150 %}
+          <button class="read-more" onclick="toggleRead('{{ r._index }}', this)">Read more ↓</button>
+          {% endif %}
+
+          {% if r.sent_preds and r.sent_preds | length > 1 %}
+          <div class="spills">
+            {% for p in r.sent_preds %}
+            <span class="spill {{ p }}">{{ p[:3] }}</span>
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          <div class="rc-foot">
+            <div class="conf-mini">
+              <div class="cbar">
+                <div class="cfill" style="width: {{ r.confidence }}%"></div>
+              </div>
+              <span class="clbl">{{ r.confidence }}%</span>
+            </div>
+            <span class="rdate">📅 {{ r.date }}</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+  <div class="empty-state rev">
+    <div class="ei">📭</div>
+    <h2>No Reviews Yet</h2>
+    <p>Analyze your first Flipkart review and it will appear here.</p>
+    <a href="{{ url_for('dashboard') }}" class="btn-go">🔍 Analyze a Review</a>
+  </div>
+  {% endif %}
+</main>
+
+<script src="./static/js/review.js"></script>
+</body>
+</html>

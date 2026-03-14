@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ReviewPredict — Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<link rel="stylesheet" href="./static/css/dashboard.css">
+</head>
+<body>
+
+<div id="loader">
+  <div class="spin"></div>
+  <div class="slt">Loading dashboard…</div>
+</div>
+
+<nav>
+  <div class="ni">
+    <a href="{{ url_for('dashboard') }}" class="brand">
+      <div class="bico">🧠</div>
+      <span class="bname">ReviewPredict</span>
+    </a>
+    <ul class="nl">
+      <li><a href="{{ url_for('dashboard') }}" class="act">🏠 Dashboard</a></li>
+      <li><a href="{{ url_for('myreviews') }}">📋 My Reviews</a></li>
+      <li><a href="{{ url_for('about') }}">ℹ️ About</a></li>
+      <li><a href="{{ url_for('logout') }}" class="lo">🚪 Logout</a></li>
+    </ul>
+    <div class="nright">
+      <div class="uname">👤 {{ username }}</div>
+      <button class="ham" id="ham" onclick="toggleMob()">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<div class="mob-menu" id="mobMenu">
+  <a href="{{ url_for('dashboard') }}">🏠 Dashboard</a>
+  <a href="{{ url_for('myreviews') }}">📋 My Reviews</a>
+  <a href="{{ url_for('about') }}">ℹ️ About</a>
+  <a href="{{ url_for('logout') }}" style="color:var(--red)">🚪 Logout</a>
+</div>
+
+<main>
+  <div class="pg-head rev">
+    <h1>📊 Sentiment Dashboard</h1>
+    <p>Analyze Flipkart reviews using NLP — negation handling, emoji detection, sentence-level voting.</p>
+  </div>
+
+  {% if not model_loaded %}
+  <div class="demo-banner rev">
+    ⚠️ Model not found (tfidf.pkl / model.pkl). Running in demo mode. Train your model first and place the .pkl files in the same folder as app.py.
+  </div>
+  {% endif %}
+
+  <!-- ANALYZER FORM -->
+  <div class="card rev">
+    <div class="card-title">🔍 Analyze a Review</div>
+    {% if error %}<div class="err-box">⚠️ {{ error }}</div>{% endif %}
+
+    <form method="POST" action="{{ url_for('dashboard') }}" id="aform">
+      <div class="fgrid">
+        <div class="fg">
+          <label>Product Name</label>
+          <input type="text" name="product_name" placeholder="e.g. Samsung Galaxy S24">
+        </div>
+        <div class="fg">
+          <label>Category (optional)</label>
+          <input type="text" name="category" placeholder="e.g. Electronics">
+        </div>
+        <div class="fg fw">
+          <label>Product Review *</label>
+          <textarea name="review" placeholder="Paste or type the Flipkart review here… Supports emojis 😍👌 and multi-sentence analysis. e.g. 'Delivery was fast but product quality is bad.'"></textarea>
+        </div>
+      </div>
+      <button type="submit" class="btn-pred" id="pBtn">
+        <span class="bt">⚡ Predict Sentiment</span>
+        <div class="bsp"></div>
+      </button>
+    </form>
+
+    {% if result %}
+    <div class="result-box {{ result.sentiment }}">
+      <div class="res-top">
+        <span class="badge {{ result.sentiment }}">
+          {% if result.sentiment == 'Positive' %}😊{% elif result.sentiment == 'Neutral' %}😐{% else %}😞{% endif %}
+          {{ result.sentiment }}
+        </span>
+        <div class="conf-wrap">
+          <div class="conf-lbl">
+            <span>Confidence</span>
+            <strong>{{ result.confidence }}%</strong>
+          </div>
+          <div class="conf-bg">
+            <div class="conf-fill" style="width: {{ result.confidence }}%"></div>
+          </div>
+        </div>
+      </div>
+
+      {% if result.sentences | length > 1 %}
+      <div class="sb-label">📝 Sentence-Level Breakdown</div>
+      {% for i in range(result.sentences | length) %}
+      <div class="sent-item">
+        <span class="sbadge {{ result.sentence_preds[i] }}">{{ result.sentence_preds[i] }}</span>
+        <span class="stext">{{ result.sentences[i] }}</span>
+      </div>
+      {% endfor %}
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- STATS CARDS -->
+  <div class="sgrid">
+    <div class="scard rev" style="transition-delay:.05s">
+      <div class="num">{{ stats.total }}</div>
+      <div class="lbl"><span class="dot dt"></span>Total Reviews</div>
+    </div>
+    <div class="scard rev" style="transition-delay:.1s">
+      <div class="num" style="color:#15803d">{{ stats.positive }}</div>
+      <div class="lbl"><span class="dot dp"></span>Positive</div>
+    </div>
+    <div class="scard rev" style="transition-delay:.15s">
+      <div class="num" style="color:#475569">{{ stats.neutral }}</div>
+      <div class="lbl"><span class="dot dn"></span>Neutral</div>
+    </div>
+    <div class="scard rev" style="transition-delay:.2s">
+      <div class="num" style="color:#b91c1c">{{ stats.negative }}</div>
+      <div class="lbl"><span class="dot dng"></span>Negative</div>
+    </div>
+  </div>
+
+  <!-- CHART + RECENT -->
+  <div class="bgrid">
+    <div class="bcrd rev" style="transition-delay:.1s">
+      <h3>📊 Sentiment Distribution</h3>
+      <div class="chart-wrap">
+        <canvas id="myChart"></canvas>
+      </div>
+    </div>
+    <div class="bcrd rev" style="transition-delay:.18s">
+      <h3>🕒 Recent Analyses</h3>
+      <div class="rev-list">
+        {% if recent %}
+          {% for r in recent %}
+          <div class="ritem">
+            <span class="rb {{ r.sentiment }}">{{ r.sentiment[:3] }}</span>
+            <div class="rinfo">
+              <div class="rp">{{ r.product }}</div>
+              <div class="rt">{{ r.text }}</div>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <p class="empty-note">No reviews yet. Analyze your first review above!</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</main>
+
+{% if result %}
+<div class="toast" id="toast">✅ Review saved to My Reviews!</div>
+{% endif %}
+
+<script>
+// Loader
+window.addEventListener('load', function(){
+  setTimeout(function(){
+    document.getElementById('loader').classList.add('out');
+  }, 400);
+});
+
+// Scroll reveal
+var ro = new IntersectionObserver(function(entries){
+  entries.forEach(function(e){
+    if(e.isIntersecting) e.target.classList.add('in');
+  });
+}, { threshold: 0.08 });
+document.querySelectorAll('.rev').forEach(function(el){ ro.observe(el); });
+
+// Mobile menu
+function toggleMob(){
+  document.getElementById('ham').classList.toggle('open');
+  document.getElementById('mobMenu').classList.toggle('open');
+}
+
+// Form loader
+document.getElementById('aform').addEventListener('submit', function(){
+  var b = document.getElementById('pBtn');
+  b.classList.add('ld'); b.disabled = true;
+});
+
+// Toast auto hide
+setTimeout(function(){
+  var t = document.getElementById('toast');
+  if(t){ t.classList.add('show'); setTimeout(function(){ t.classList.remove('show'); }, 3000); }
+}, 500);
+
+// Chart
+var ctx = document.getElementById('myChart').getContext('2d');
+new Chart(ctx, {
+  type: 'doughnut',
+  data: {
+    labels: ['Positive', 'Neutral', 'Negative'],
+    datasets: [{
+      data: [
+        {{ stats.positive if stats.positive > 0 else 1 }},
+        {{ stats.neutral  if stats.neutral  > 0 else 1 }},
+        {{ stats.negative if stats.negative > 0 else 1 }}
+      ],
+      backgroundColor: ['#22c55e', '#94a3b8', '#ef4444'],
+      borderWidth: 0,
+      hoverOffset: 6,
+    }]
+  },
+  options: {
+    cutout: '65%',
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: { padding: 18, font: { family: 'Nunito', size: 13 } }
+      }
+    },
+    animation: { duration: 900 }
+  }
+});
+</script>
+</body>
+</html>
