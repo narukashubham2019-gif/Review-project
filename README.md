@@ -226,6 +226,4 @@ Feel free to use it as a reference for your own NLP projects.
 
 ---
 
-<div align="center">
-  Made with ❤️ by <strong>Anmol Panchal</strong> · B.Tech CSE, 2nd Year · Data Science
-</div>
+
