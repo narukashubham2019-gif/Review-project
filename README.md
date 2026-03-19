@@ -20,12 +20,12 @@
 
 | Field | Details |
 |---|---|
-| **Name** | Anmol Panchal |
+| **Name** |     Shubham singh |
 | **Branch** | B.Tech — Computer Science Engineering |
 | **Year** | 2nd Year |
 | **Course** | Data Science |
-| **Email** | panchalji9705@gmail.com |
-| **Phone** | +91 77422 03252 |
+| **Email** | narukasingh79@gmail.com |
+| **Phone** | +91 9784965562 |
 
 ---
 
